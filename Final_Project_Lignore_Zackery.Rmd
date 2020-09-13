@@ -1,0 +1,611 @@
+---
+title: "UFC Data"
+author: "Zackery Lignore"
+date: "11/14/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# The Data
+
+I explored kaggle.com to find a dataset that was interesting to me as well as manageable to work with. The UFC data caught my eye immediately. Most sports data is packed full of statistical values making them a good choice to work with. The dataset that I sourced had 145 columns of various data inputs ranging from names and locations to average number of times the opponent attempted a take down and the measure of arm length per fighter. I did not find one specific problem to address when looking at the data as a whole. Instead, I explored the data until interesting variables were found. The only package that I used was tidyverse. This is needed to use dplyer to manipulate the dataset. The original dataset can be found at https://www.kaggle.com/rajeevw/ufcdata along with other csv files of raw data that I did not use in the making of this project.
+  
+```{r}
+# The tidyverse package is loaded in order to use Dplyer tools on the dataset.
+
+library(tidyverse)
+
+```
+
+  The original data imported below had 145 columns, many of which I did not use. Throughout the project I created other columns that do not exist in the original data. In the code below I import the data, create all the added variable that I will use later, then select only the variables that I want, 46 columns. I also omit all input that is missing data. Most of these were fighters listed without having had a fight yet. They were omitted to allow for true computations of the numerical data. The data is stored for both red and blue corners. Because the input is the latest information, a fighter can have different stats following each fight. The latest fight will display the current information.
+  
+```{r}
+# The data is loaded into the markdown file and all entries missing data are omitted from the set. New columns are created to generate further summaries. Finally, the select function is used to get the desired data.
+
+data <- read.csv("../Data Sets/ufc_data.csv")
+data <- data %>% na.omit() %>% mutate(B_win_pct = B_wins/(B_losses + B_wins), 
+                                      R_win_pct = R_wins/(R_losses + R_wins),
+                                      R_RH = (R_Reach_cms)/(R_Height_cms), 
+                                      B_RH = (B_Reach_cms)/(B_Height_cms),
+                                      R_Total_fights = R_wins + R_losses,
+                                      B_Total_fights = B_wins + B_losses,
+                                      R_strike_pct = (R_avg_TOTAL_STR_landed/R_avg_TOTAL_STR_att),
+                                      B_strike_pct = (B_avg_TOTAL_STR_landed/B_avg_TOTAL_STR_att)) %>% 
+                                      select(R_fighter, B_fighter, Referee, date, location, Winner, weight_class,
+                                      no_of_rounds, B_avg_TOTAL_STR_att, B_avg_TOTAL_STR_landed,
+                                      R_avg_TOTAL_STR_att, R_avg_TOTAL_STR_landed, B_losses, R_losses,
+                                      B_wins, R_wins, B_total_rounds_fought, R_total_rounds_fought,
+                                      B_win_by_Decision_Majority, B_win_by_Decision_Split,
+                                      B_win_by_Decision_Unanimous, B_win_by_KO.TKO, B_win_by_Submission,
+                                      B_win_by_TKO_Doctor_Stoppage, R_win_by_Decision_Majority,
+                                      R_win_by_Decision_Split, R_win_by_Decision_Unanimous,
+                                      R_win_by_KO.TKO, R_win_by_Submission, R_win_by_TKO_Doctor_Stoppage,
+                                      B_Stance, R_Stance, B_Height_cms, R_Height_cms, B_Reach_cms,
+                                      R_Reach_cms, B_age, R_age, B_win_pct, R_win_pct, R_RH, B_RH,
+                                      R_Total_fights, B_Total_fights, R_strike_pct, B_strike_pct)
+```
+
+# Gender
+
+  The biggest distinction between the data is that of gender. Sometimes the data between each gender agrees together, however, most of the time there is a stark contrast between the data of men's and women's fights and stats. The following code separates the men's fights by their respective weight class calling the new dataset M_data. The same is done for the women's weight classes creating the dataset F_data.
+  
+```{r}
+# Creates new dataset with men's fights only.
+
+M_data <- data %>% filter(weight_class %in% 
+                                          c("Bantamweight", "Catch Weight", "Featherweight", "Flyweight",
+                                              "Heavyweight", "Light Heavyweight", "Lightweight", "Middleweight",
+                                              "Open Weight", "Welterweight"))
+```
+
+```{r}
+# Creates new dataset with women's fights only.
+
+F_data <- data %>% filter(weight_class %in% c("Women's Strawweight", "Women's Flyweight", 
+"Women's Featherweight", "Women's Bantamweight"))
+```
+
+## Fight Decisions
+
+  The first curiosity of mine was how do all the fights end? The following table shows that men's fights are most likely to end by knockout or technical knockout. The least common way to end is by majority decision. This data combines the variables from red and blue corners to find the total.
+  
+```{r}
+# Creates a data frame with the total number of fights and how they were decided for the Men's data. Then graphs the findings.
+
+M_type_of_win <- M_data %>%  summarise(Total_Majority = sum(B_win_by_Decision_Majority) + 
+                      sum(R_win_by_Decision_Majority), 
+                      Total_Split = sum(B_win_by_Decision_Split) + sum(R_win_by_Decision_Split), 
+                      Total_Unanimous = sum(B_win_by_Decision_Unanimous) + sum(R_win_by_Decision_Unanimous), 
+                      Total_KO.TKO = sum(B_win_by_KO.TKO) + sum(R_win_by_KO.TKO), 
+                      Total_Submission = sum(B_win_by_Submission) + sum(R_win_by_Submission), 
+                      Total_TKO_Doctor_Stoppage = sum(B_win_by_TKO_Doctor_Stoppage) +
+                      sum(R_win_by_TKO_Doctor_Stoppage)) %>%
+                      select(Total_Majority, Total_Split, Total_Unanimous, Total_KO.TKO, Total_Submission, 
+                      Total_TKO_Doctor_Stoppage) %>% 
+                      t() %>% data.frame(Total_Fights = .) %>% rownames_to_column()
+
+ggplot(data = M_type_of_win) + geom_col(aes(x = rowname,y = Total_Fights)) + 
+  theme(axis.text.x = element_text(angle = 45,hjust = 1)) + ggtitle("Men's Fight Outcome") +
+  xlab("Decision") + ylab("Total Fights")
+
+```
+
+  This is the first distinction between the sexes with this data. The women's fights most commonly end by unanimous decision followed by submission the knockout. The similarity is that majority decision is again the least common way for the fight to end. This makes sense as men weigh more and generally have larger muscles. Those factors imply that a more forceful strike is generated which allows for a fighter to be knocked unconscious. 
+  
+```{r}
+# Creates a data frame with the total number of fights and how they were decided for the Women's data then plots the findings.
+
+F_type_of_win <- F_data %>%  summarise(Total_Majority = sum(B_win_by_Decision_Majority)+
+                                      sum(R_win_by_Decision_Majority), 
+                                      Total_Split = sum(B_win_by_Decision_Split) + 
+                                      sum(R_win_by_Decision_Split), 
+                                      Total_Unanimous = sum(B_win_by_Decision_Unanimous) +
+                                      sum(R_win_by_Decision_Unanimous), Total_KO.TKO = sum(B_win_by_KO.TKO) +
+                                      sum(R_win_by_KO.TKO), Total_Submission = sum(B_win_by_Submission) +
+                                      sum(R_win_by_Submission), Total_TKO_Doctor_Stoppage =
+                                      sum(B_win_by_TKO_Doctor_Stoppage) + sum(R_win_by_TKO_Doctor_Stoppage)) %>%
+                                      select(Total_Majority, Total_Split, Total_Unanimous, Total_KO.TKO,
+                                      Total_Submission, Total_TKO_Doctor_Stoppage) %>% 
+                                      t() %>% data.frame(WTotal_Fights = .) %>% rownames_to_column()
+
+ggplot(data = F_type_of_win) + geom_col(aes(x = rowname,y = WTotal_Fights)) +
+  theme(axis.text.x = element_text(angle = 45,hjust = 1)) + ggtitle("Women's Fight Outcome") +
+  xlab("Decision") + ylab("Total Fights")
+
+```
+
+## Longest Record
+
+  The cleaned data has input from 3355 fights. A quick question that comes to mind is that of senoirity. Who has the most recorded fights with the UFC? Both Jim Miller and Donald Cerrone have 31 fights. The data is looked at for each 'corner'. Some fighters have fought from both corners while others have only fought in one or the other. Looking at each corner separately gives a more complete picture.
+  
+```{r}
+# Arranges a previously made column for the most number of fights for the red and blue corners for men's data.
+
+M_data %>% arrange(desc(R_Total_fights)) %>% select(R_fighter, R_Total_fights) %>% head(1) %>% 
+  knitr::kable(caption = "Red Corner's Longest Record")
+
+M_data %>% arrange(desc(B_Total_fights)) %>% select(B_fighter, B_Total_fights) %>% head(1) %>% 
+  knitr::kable(caption = "Blue Corner's Longest Record")
+```
+
+  The same information is found using the women's dataset to show that Jessica Andrade holds the current record of most bouts at 14. This again makes sense as women did not fight in the UFC until 2012. That is 19 years after the UFC began.
+  
+```{r}
+# Arranges a previously made column for the most number of fights for the red and blue corners for the women's data.
+
+F_data %>% arrange(desc(R_Total_fights)) %>% select(R_fighter, R_Total_fights) %>% head(1) %>% 
+  knitr::kable(caption = "Red Corner's Longest Record")
+
+F_data %>% arrange(desc(B_Total_fights)) %>% select(B_fighter, B_Total_fights) %>% head(1) %>%
+  knitr::kable(caption = "Blue Corner's Longst Record")
+```
+
+## Winning Percentage
+
+  One of the first variables or columns that I created was R_win_pct and B_win_pct. As guessed, this returns the value of the percent of victorious fights. The below code and table show the fighters and their win percentage in descending order for the red and blue corners. Some fighters have a perfect record, even though it only portrays a single fight like that of Ian Heinisch and Darko Stosic. For comparison, the average winning percentage is 63% for men fighters.
+  
+```{r}
+# Arranges a previously made column of win percent in descending order per corner for men's fights.
+
+M_data %>% select(R_fighter, R_win_pct, R_wins, R_losses) %>%
+  arrange(desc(R_win_pct)) %>% head(3) %>% knitr::kable(caption = "Highest Red Corner Winning Percentage")
+
+M_data %>% select(B_fighter, B_win_pct, B_wins, B_losses) %>% 
+  arrange(desc(B_win_pct)) %>% head(3) %>% knitr::kable(caption = "Highest Blue Corner Winning Percentage")
+
+M_data %>% mutate(R_avg_win_pct = mean(R_win_pct), B_avg_win_pct = mean(B_win_pct)) %>% 
+  select(R_avg_win_pct, B_avg_win_pct) %>% summarise(avg_win_pct = mean(R_avg_win_pct + B_avg_win_pct)/2) %>% knitr::kable(caption = "Average Winning Percentage")
+```
+
+  According to the women's data, the average winning percentage of victorious fights is 60%. Again, the fighters are listed in descending order according to their win percentage. The best fighters are not necessarily listed first though because a perfect record can be achieved by a single fight.
+  
+```{r}
+# Arranges a previously made column of win percent in descending order per corner for women's fights.
+
+F_data %>% select(R_fighter, R_win_pct, R_wins, R_losses) %>%
+  arrange(desc(R_win_pct)) %>% head(3) %>% knitr::kable(caption = "Highest Red Corner Winning Percentage")
+
+F_data %>% select(B_fighter, B_win_pct, B_wins, B_losses) %>%
+  arrange(desc(B_win_pct)) %>% head(3) %>% knitr::kable(caption =  "Highest Blue Corner Winning Percentage")
+
+F_data %>% mutate(R_avg_win_pct = mean(R_win_pct), B_avg_win_pct = mean(B_win_pct)) %>% 
+  select(R_avg_win_pct, B_avg_win_pct) %>% summarise(avg_win_pct = mean(R_avg_win_pct + B_avg_win_pct)/2) %>% 
+  knitr::kable(caption = "Average Winning Percentage")
+```
+
+# Red vs Blue Corner
+
+  When finding the average winning percentage for the fighters, a contrast was illuminated. The average red corner fighter in the men's data is ~65% while the blue corner average win percent is roughly 5% less. Looking further into the difference between the red and blue corners reveals a bigger contrast.
+
+```{r}
+# Creates variables using Men's data that give total number of wins for each corner then creates data frame with the percentage of wins and color of corner.
+
+B_corner_wins <- M_data %>% filter(Winner == "Blue") %>% count()
+R_corner_wins <- M_data %>% filter(Winner == "Red") %>% count()
+Total_wins <- R_corner_wins + B_corner_wins
+
+plotting_df <- data.frame(win_pct = c(as.double(R_corner_wins/Total_wins),as.double(B_corner_wins/Total_wins)), corner = c("Red","Blue"))
+
+```
+
+```{r}
+
+t.test(x = M_data$B_wins, y = M_data$R_wins, mu = 0, "two.sided")
+```
+
+```{r}
+# Creates a graph of the above data.
+
+ggplot(data = plotting_df) + geom_col(aes(x = corner, y = win_pct)) + ggtitle("Total Men's Fights Won by Corner") +
+  xlab("Corner") + ylab("Percent")
+```
+ 
+  The red corner wins ~64% of all the fights leaving the blue corner with a 36% rate of winning for the men's fights. The women's data portrays a similar advantage to the red corner at ~58% and 42% for the blue corner. However, the red corner is not "lucky" as the numbers might suggest. The corner is not randomly chosen. Typically,  the fighter defending a title, or more renowned and veteran is placed in the red corner. The challenger takes the blue corner. Even knowing the more experienced fighter is placed in the red corner, the nearly double winning rate is interesting.
+  
+```{r}
+# Creates variables using Woen's data that give total number of wins for each corner then creates data frame with the percentage of wins and color of corner. Lastly, a graph is generated to reflect the data.
+
+WB_corner_wins <- F_data %>% filter(Winner == "Blue") %>% count()
+WR_corner_wins <- F_data %>% filter(Winner == "Red") %>% count()
+WTotal_wins <- WR_corner_wins + WB_corner_wins
+
+Wplotting_df <- data.frame(win_pct = c(as.double(WR_corner_wins/WTotal_wins),as.double(WB_corner_wins/WTotal_wins)), corner = c("Red","Blue"))
+
+ggplot(data = Wplotting_df) + geom_col(aes(x = corner, y = win_pct)) + 
+  ggtitle("Total Women's Fights Won by Corner") + xlab("Corner") + ylab("Percent")
+
+```
+
+## Referee 
+  Next, we check to see if a referee favors one corner over the other. There are 171 different referees in this data, 167 in the men's data and 61 in the women's data. The plot depicting the men's data shows that all referees follow a 2 to 1 ruling in favor of the red corner. There are a few inputs where the referee has a slightly higher red corner over blue corner win rate. 
+  
+```{r}
+# Creates variables to find the percentage of wins per corner from the men's data then joins with another data frame that groups by the referee during each fight. A graph is then generated to show the percentage of red vs blue corner wins for each referee.
+
+B_corner_wins2 <- M_data %>% filter(Winner == "Blue") %>% group_by(Referee) %>%  count()
+R_corner_wins2 <- M_data %>% filter(Winner == "Red") %>%  group_by(Referee) %>% count()
+Total_wins2 <- R_corner_wins + B_corner_wins
+
+plotting_df <- data.frame(win_pct = c(as.double(R_corner_wins/Total_wins),as.double(B_corner_wins/Total_wins)), corner = c("Red","Blue"))
+
+wins <- R_corner_wins2 %>% inner_join(B_corner_wins2, by = "Referee")
+ggplot(data = wins) + geom_point(aes(x = n.x, y = n.y)) + ggtitle("Men's Wins per Corner by Referee") +
+  xlab("Red Corner Wins") + ylab("Blue Corner Wins")
+```
+
+  The women's plot shows a different picture. First, you must consider the sample size. The men's data has more data input showing a more condensed plot. The women's plot is much more scattered, partly because of the decreased sample size. The referee represented by the point on the top right corner shows the expected trend of 2 to 1 in favor of red. The point just below that shows a referee with a 15 to 4 rate in favor of red. On the other end of the spectrum, there is a referee that has a 4 to 1 record of blue corner wins.
+  
+```{r}
+# Creates variables to find the percentage of wins per corner from the women's data then joins with another data frame that groups by the referee during each fight. A graph is then generated to show the percentage of red vs blue corner wins for each referee.
+
+WB_corner_wins2 <- F_data %>% filter(Winner == "Blue") %>% group_by(Referee) %>%  count()
+WR_corner_wins2 <- F_data %>% filter(Winner == "Red") %>% group_by(Referee) %>%  count()
+WTotal_wins2 <- WR_corner_wins + WB_corner_wins
+
+Wplotting_df <- data.frame(win_pct = c(as.double(WR_corner_wins/WTotal_wins),as.double(WB_corner_wins/WTotal_wins)), corner = c("Red","Blue"))
+
+
+
+w_wins <- WR_corner_wins2 %>% inner_join(WB_corner_wins2, by = "Referee")
+ggplot(data = w_wins) + geom_point(aes(x = n.x, y = n.y)) + ggtitle("Women's Wins per Corner by Referee") +
+  xlab("Red Corner Wins") + ylab("Blue Corner Wins")
+```
+
+## Location
+
+  In keeping with the same thought as above, let's look to see if the arena has any impact on the red vs blue corner trend. In the men's data there is no significant information. The location with the, by far, most fights has the typical 2 to 1 red corner ratio with all the other locations clustered closely around that mark.
+  
+```{r}
+# Creates variables to find the percentage of wins per corner from the men's data then joins with another data frame that groups by the location of each fight. A graph is then generated to show the percentage of red vs blue corner wins for each referee.
+
+B_corner_wins3 <- M_data %>% filter(Winner == "Blue") %>% group_by(location) %>%  count()
+R_corner_wins3 <- M_data %>% filter(Winner == "Red") %>%  group_by(location) %>% count()
+Total_wins3 <- R_corner_wins + B_corner_wins
+
+plotting_df <- data.frame(win_pct = c(as.double(R_corner_wins/Total_wins),as.double(B_corner_wins/Total_wins)), corner = c("Red","Blue"))
+
+wins2 <- R_corner_wins3 %>% inner_join(B_corner_wins3, by = "location")
+ggplot(data = wins2) + geom_point(aes(x = n.x, y = n.y)) + ggtitle("Number of Wins per Corner by Location") +
+  xlab("Red Corner Wins") + ylab("Blue Corner Wins")
+
+```
+
+  As for the women's data, the same anomaly applies. Due to the decrease sample size one can see a deviation from the trend more easily. On the left you see a 4 to 1 blue corner advantage location and a 6 to 1 in favor of the red corner towards the right side of the plot.
+  
+```{r}
+# Creates variables to find the percentage of wins per corner from the women's data then joins with another data frame that groups by the location of each fight. A graph is then generated to show the percentage of red vs blue corner wins for each referee.
+
+WB_corner_wins3 <- F_data %>% filter(Winner == "Blue") %>% group_by(location) %>%  count()
+WR_corner_wins3 <- F_data %>% filter(Winner == "Red") %>%  group_by(location) %>% count()
+WTotal_wins3 <- WR_corner_wins + WB_corner_wins
+
+Wplotting_df <- data.frame(win_pct = c(as.double(WR_corner_wins/WTotal_wins),as.double(WB_corner_wins/WTotal_wins)), corner = c("Red","Blue"))
+
+w_wins2 <- WR_corner_wins3 %>% inner_join(WB_corner_wins3, by = "location")
+ggplot(data = w_wins2) + geom_point(aes(x = n.x, y = n.y)) + ggtitle("Number of Wins per Corner by Location") +
+  xlab("Red Corner Wins") + ylab("Blue Corner Wins")
+```
+
+### Average Fight Length
+
+  The next few chunks explore the data and find some values I thought were interesting. First, we find the average number of rounds a fight lasts: 3.2 rounds for men's and 3.3 rounds for women's fights. Secondly, the average number of rounds fought in the fighter's career. The average fighter has fought for 30.26 rounds and 19.12 rounds for the men and women's data respectively. The women's data depicts a slightly longer average fight time at 3.3 rounds per fight, yet the average women's fighter has a much smaller total rounds fought value. Again, this is due to the more recent establishment of the Women's UFC.
+  
+```{r}
+# Finds the average length of a Men's fight.
+
+M_data %>% summarise(avg_no_of_rounds = mean(no_of_rounds)) %>% 
+  knitr::kable(caption = "Average Length of Men's Fight")
+  
+```
+
+```{r}
+# Finds the average length of a Women's fight.
+
+F_data %>% summarise(avg_no_of_rounds = mean(no_of_rounds)) %>% 
+  knitr::kable(caption = "Average Length of Women's Fight")
+```
+
+### Total rounds fought
+
+```{r}
+# Returns the mean of the total number of rounds fought for Men.
+
+M_data %>% summarise(avg_time_fighting = mean(R_total_rounds_fought + B_total_rounds_fought)) %>% 
+  knitr::kable(caption = "Average Total Rounds Fought")
+
+```
+
+```{r}
+# Returns the mean of the total number of rounds fought for Women.
+
+F_data %>% summarise(avg_time_fighting = mean(R_total_rounds_fought+B_total_rounds_fought)) %>% 
+  knitr::kable(caption = "Average Total Rounds Fought")
+
+```
+
+## Age
+
+  Next, we look to see if the fighter's age has any effect on their success. Starting with the men's data, we find that Randy Couture is the oldest fighter. Sage Northcutt takes the position of the youngest fighter. Let's look at each of their win percentage and compare it with the average fighter. The oldest fighter, Couture, has a win percent of 76%. Northcutt, the youngest, has a win percent of 77%. Both fighters have a higher than average win percent which is 63%. There is only a 1% difference between the oldest and youngest fighters, but Couture has more than double the number of fights under his belt.
+  
+```{r}
+# Returns three data frames based on the men's data:                                                               1) the first is the win percentage of the oldest fighter                                                            2) the second is the win percentage of the youngest fighter                                                        3) the last is the mean win percentage of all fighters
+
+age1 <- M_data %>% select(B_age, B_fighter) %>% arrange(B_age)
+age2 <- M_data %>% select(B_age, B_fighter) %>% arrange(desc(B_age))
+age3 <- M_data %>% select(R_age, R_fighter) %>% arrange(R_age)
+age4 <- M_data %>% select(R_age, R_fighter) %>% arrange(desc(R_age))
+
+R_oldest_win_pct <- M_data %>% filter(R_fighter == "Randy Couture") %>% summarise(win_pct = sum(R_win_pct))
+
+B_oldest_win_pct <- M_data %>% filter(B_fighter == "Randy Couture") %>% summarise(win_pct = sum(B_win_pct))
+
+(oldest <- (R_oldest_win_pct + B_oldest_win_pct)/15) %>% 
+  knitr::kable(caption = "Oldest Fighter's Winning Percentage")
+
+(youngest <- M_data %>% filter(R_fighter == "Sage Northcutt") %>% summarise(win_pct = sum(R_win_pct)/7)) %>% knitr::kable(caption = "Youngets Fighter's Winning Percentage")
+
+(avg <- M_data %>% mutate(avg_win_pct = (R_win_pct + B_win_pct)/2) %>% summarise(avg_win_pct = mean(avg_win_pct))) %>% knitr::kable(caption = "Average Fighter's Winning Percentage")
+
+```
+
+  I created a visual using the smooth aesthetic to show the fighter's age in the y-axis and the win percentage on the x-axis. There are two graphs, one for each corner. For easier recognition, the red corner is colored red, and the blue graph shows the data from the blue corner. Both visuals have a green line showing the average fighter's win percent for that corner. The similarity between the corners is interesting to see. The shape of the graph is nearly the same. Both graphs show that the younger fighters do really well or very poorly at winning fights. The older fighters are more clustered around the middle of the plot on either side of the green average win percentage line.
+  
+```{r}
+MR_age_plot <- M_data %>% select(R_fighter, R_win_pct, R_age)
+MB_age_plot <- M_data %>% select(B_fighter, B_win_pct, B_age)
+
+ggplot(MR_age_plot) + geom_smooth(aes(x = R_win_pct, y = R_age), color = "red") + 
+  geom_vline(xintercept = 0.6257418, color = "green", size = 2) + 
+  ggtitle("Men's Average Win Percentage With Age Red Corner") +
+  xlab("Win Percentage") + ylab("Fighter's Age")
+
+ggplot(MB_age_plot) + geom_smooth(aes(x = B_win_pct, y = B_age), color = "blue") + 
+  geom_vline(xintercept = 0.6054667, color = "green", size = 2) + 
+  ggtitle("Men's Average Win Percentage With Age Blue Corner") +
+  xlab("Win Percentage") + ylab("Fighter's Age")
+```
+
+  The oldest and youngest women fighters are Marion Reneau and Maycee Barber respectively. Barber boasts a 100% winning percent but has only had a single fight. Reneau holds a 69% winning record. Both of which are above the 60% average.
+  
+```{r}
+# Returns three data frames based on the women's data:                                                              1) the first is the win percentage of the oldest fighter                                                            2) the second is the win percentage of the youngest fighter                                                         3) the last is the mean win percentage of all fighters
+
+age21 <- F_data %>% select(B_age, B_fighter) %>% arrange(B_age)
+age22 <- F_data %>% select(B_age, B_fighter) %>% arrange(desc(B_age))
+age23 <- F_data %>% select(R_age, R_fighter) %>% arrange(R_age)
+age24 <- F_data %>% select(R_age, R_fighter) %>% arrange(desc(R_age))
+
+WR_oldest_win_pct <- F_data %>% filter(R_fighter == "Marion Reneau") %>% summarise(win_pct = sum(R_win_pct))
+
+WB_oldest_win_pct <- F_data %>% filter(B_fighter == "Marion Reneau") %>% summarise(win_pct = sum(B_win_pct))
+
+(W_oldest_win_pct <- (WR_oldest_win_pct + WB_oldest_win_pct)/8) %>% 
+  knitr::kable(caption = "Oldest Fighter's Winning Percentage")
+
+WR_youngest_win_pct <- F_data %>% filter(R_fighter == "Maycee Barber") %>% summarise(win_pct = sum(R_win_pct))
+
+(W_youngest_win_pct <-(WR_youngest_win_pct/1)) %>% 
+  knitr::kable(caption = "Youngest Fighter's Winning Percentage")
+
+(avg_win_pct <- F_data  %>% mutate(avg_win_pct = (R_win_pct + B_win_pct)/2) %>% 
+    summarise(avg_win_pct = mean(avg_win_pct))) %>% 
+  knitr::kable(caption = "Average Fighter's Winning Percentage")
+
+```
+
+  The women's data has yet to fail to intrigue me. The blue corner smooth graph of the fighter age and win percentage is similar to the men's graphs. Overall it has a parabola shape with the younger fighters having a really good or really bad record and the older fighters hover around the average win percentage mark. The women's red corner tells a different story. This graph is almost skewed and shows that the fighters with below average win percent are also the ones that are more advanced in age while the younger fighters clearly have a higher than average winning record.
+  
+```{r}
+WR_age_plot <- F_data %>% select(R_fighter, R_win_pct, R_age)
+WB_age_plot <- F_data %>% select(B_fighter, B_win_pct, B_age)
+
+ggplot(WR_age_plot) + geom_smooth(aes(x = R_win_pct, y = R_age), color = "red") + 
+  geom_vline(xintercept = 0.6062128, color = "green", size = 2) + 
+  ggtitle("Women's Average Win Percentage With Age Red Corner") +
+  xlab("Win Percentage") + ylab("Fighter's Age")
+
+ggplot(WB_age_plot) + geom_smooth(aes(x = B_win_pct, y = B_age), color = "blue") + 
+  geom_vline(xintercept = 0.585089, color = "green", size = 2) + 
+  ggtitle("Women's Average Win Percentage With Age Blue Corner") +
+  xlab("Win Percentage") + ylab("Fighter's Age")
+```
+
+## Fighting Stance
+
+  Another variable I wanted to consider was that of fight stance. The below graph is titled 'Most Winning Fighting Stance' while it could have just as easily been titled most common fighting stance. The graphs are colored to show the corner they represent. There seems to be more input into the red corner graph as the y-axis is increased. The shape of the graphs appears identical.
+  
+```{r}
+# Returns the fighting stance with the most wins from the men's data then graphs the results in a histogram.
+
+M_data %>% select(R_Stance, R_wins, R_losses) %>% group_by(R_Stance) %>% summarise(Total_wins = sum(R_wins)) %>% 
+  knitr::kable(caption = "Red Corner's Total Wins by Fighting Stance")
+
+M_data %>% select(B_Stance, B_wins, B_losses) %>% group_by(B_Stance) %>% summarise(Total_wins = sum(B_wins)) %>% 
+  knitr::kable(caption = "Blue Corner's Total Wins by Fighting Stance")
+
+MR_stance <- M_data %>% select(R_Stance, R_wins)
+MB_stance <- M_data %>% select(B_Stance, B_wins)
+
+ggplot(MR_stance, aes(x = R_Stance, y = R_wins)) + geom_col(fill = "red") +
+  ggtitle("Men's Red Corner Most Winning Fighting Stance") + xlab("Fighting Stance") +
+  ylab("Total Wins")
+
+ggplot(MB_stance, aes(x = B_Stance, y = B_wins)) + geom_col(fill = "blue") +
+  ggtitle("Men's Blue Corner Most Winning Fighting Stance") + xlab("Fighting Stance") +
+  ylab("Total Wins")
+
+```
+
+  The women's data shows the same favorite fighting stance of Orthodox. A small difference is the higher occurence of the unnamed fighting stance for both the red and blue corners.
+  
+```{r}
+# Returns the fighting stance with the most wins from the women's data then graphs the results in a histogram.
+
+F_data %>% select(R_Stance, R_wins, R_losses) %>% group_by(R_Stance) %>% summarise(Total_wins = sum(R_wins)) %>% 
+  knitr::kable(caption = "Red Corner's Total Wins by Fighting Stance")
+
+F_data %>% select(B_Stance, B_wins, B_losses) %>% group_by(B_Stance) %>% summarise(Total_wins = sum(B_wins)) %>% 
+  knitr::kable(caption = "Blue Corner's Total Wins by Fighting Stance")
+
+WR_stance <- F_data %>% select(R_Stance, R_wins)
+WB_stance <- F_data %>% select(B_Stance, B_wins)
+
+ggplot(WR_stance, aes(x = R_Stance, y = R_wins)) + geom_col(fill = "red") +
+  ggtitle("Women's Red Corner Most Winning Fighting Stance") + xlab("Fighting Stance") +
+  ylab("Total Wins")
+
+ggplot(WB_stance, aes(x = B_Stance, y = B_wins)) + geom_col(fill = "blue") +
+  ggtitle("Women's Blue Corner Most Winning Fighting Stance") + xlab("Fighting Stance") +
+  ylab("Total Wins")
+```
+
+## Fighter's Reach and Height
+
+  A fighter's reach, or arm length, is a significant variable. I created a column that gives each fighter's reach to height ratio. A boxplot visual clearly displays the average reach to height ratio per weight class. The graphs are again colored to indicate the corner and the green line marks the average fighter's reach to height figure. In the red corner, the bantamweight fighters have a below average reach to height ratio but there is an outlier with a significant reach advantage. Catch, featherweight and flyweight all have a close to average reach. The light heavyweight and welterweight classes have outliers on both ends of the spectrum while the lightweight, middleweight and heavyweight all have outliers with above average reach to height ratios. The blue corner demonstrates a similar pattern with the average ratio of all weight classes falling closely in line with the average reach for all fighters. Reach advantage outliers can be found in light heavyweight, lightweight and middleweight and welterweight. Disadvantageous outliers are seen in catchweight, lightweight and welterweight classes.
+  
+```{r}
+# Arranges a previously made column in men's data, RH, for reach/height for each fighter and plots the average reachto height ratio per weight class. Lastly, the red line is added to show the overall average reach to height ratio.
+
+M_data %>% select(R_fighter, B_fighter, R_win_pct, B_win_pct, R_RH, B_RH) %>% head(3) %>% 
+  knitr::kable(caption = "Fighter's Winning Percentage and Reach to Height Ratio")
+
+ggplot(M_data, aes(x = weight_class, y = R_RH)) + geom_boxplot(color = "red") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) + 
+  ggtitle("Men's Red Corner Reach to Height Ratio by Weight Class") +
+  xlab("Weight Class") + ylab("Reach to Height Ratio") + 
+  geom_hline(yintercept = 1.027458, color = "green", size =2)
+
+ggplot(M_data, aes(x = weight_class, y = B_RH)) + geom_boxplot(color = "blue") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) + 
+  ggtitle("Men's Blue Corner Reach to Height Ratio by Weight Class") +
+  xlab("Weight Class") + ylab("Reach to Height Ratio") +
+  geom_hline(yintercept = 1.026083, color = "green", size =2)
+```
+
+  The women's data continues with the trend of showing sharper contrast due to the smaller sample size. In the red corner, all weight classes have an above average reach to height ratio except for the women's strawweight. The strawweight does have a favorable outlier but also holds some of the most disadvantaged fighters. The women's bantamweight class also catches your eye with a couple outliers on both sides of the average line. The women's blue corner is a bit different. Women's flyweight and bantamweight both have below average reach while featherweight and strawweight have above average numbers. The women's flyweight and strawweight boast outliers with significant reach to height ratios. 
+  
+```{r}
+# Arranges a previously made column in women's data, RH, for reach/height for each fighter and plots the average reachto height ratio per weight class. Lastly, the red line is added to show the overall average reach to height ratio.
+
+F_data %>% select(R_fighter, B_fighter, R_win_pct, B_win_pct, R_RH, B_RH) %>% head(3) %>%
+  knitr::kable(caption = "Fighter's Winning Percentage and Reach to Height Ratio")
+
+ggplot(F_data, aes(x = weight_class, y = R_RH)) + geom_boxplot(color = "red") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) + 
+  ggtitle("Women's Red Corner Reach to Height Ratio by Weight Class") +
+  xlab("Weight Class") + ylab("Reach to Height Ratio") + 
+  geom_hline(yintercept = 1.005845, color = "green", size = 2)
+
+ggplot(F_data, aes(x = weight_class, y = B_RH)) + geom_boxplot(color = "blue") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) + 
+  ggtitle("Women's Blue Corner Reach to Height Ratio by Weight Class") +
+  xlab("Weight Class") + ylab("Reach to Height Ratio") + 
+  geom_hline(yintercept = 1.006242, color = "green", size = 2)
+```
+
+## Accuracy
+
+  The last variable that I created was a fighter's strike percent. This figure shows the percentage of strikes landed from the total strikes attempted. It can be used to measure a fighter's accuracy. The original data had the number of attempts and landed strikes for each type of strike. I used the total attempt and total landed variables to create the strike percent column. Below is a table that shows the fighter with the highest accuracy, strike percent, for each weight class.
+  
+```{r}
+# From the men's data, two data frames are created reflecting the maximum percentage of strikes landed by corner.
+
+M_data  %>% group_by(weight_class) %>% filter(R_strike_pct == max(R_strike_pct)) %>% 
+  select(R_fighter, R_strike_pct, weight_class) %>%
+  knitr::kable(caption = "Red Corner's Most Accurate by Weight Class")
+
+M_data  %>% group_by(weight_class) %>% filter(B_strike_pct == max(B_strike_pct)) %>% 
+  select(B_fighter, B_strike_pct, weight_class) %>% 
+  knitr::kable(caption = "Blue Corner's Most Accurate by Weight Class")
+
+```
+
+  The below code makes a quick reference to the above fighters with highest accuracy per weight class and their corresponding winning percentage.
+  
+```{r}
+# Creates a sub set reflecting the win percentage of the above fighters filtered to only the fights that include the above fighters.
+
+M_data %>% filter(B_fighter %in% c("Rousimar Palhares", "Ryan Jimmo", "Yoel Romero", 
+                                   "Issei Tamura","Justin Scoggins", "Tatsuya Kawajiri",
+                                   "Jack May", "Fabio Maldonado") | 
+                    R_fighter %in% c("Johnny Walker", "Hakeem Dawodu", "Brandon Moreno", "Aaron Phillips",
+                                     "Victor Belfort", "Nate Diaz", "Joe Doerksen", "Randy couture")) %>%
+  select(R_fighter, B_fighter, weight_class, R_win_pct, B_win_pct) %>% head(3) %>% 
+  knitr::kable(caption = "Highest Accuracy and Corresponding Winning Percentage")
+```
+ 
+  The following graphs show the highest accuracy fighters by weight class and their corresponding record of wins. The green line is used to mark the average win percentage of fighters in that corner. The boxplot does well to show the fighter's record. The line of the mean in the boxplot is the average of that fighter's win percentage. Compare that value to the green line for a quick reference to show a winning or losing record. In the red corner, Couture, Moreno, Diaz, and Walker all have above average winning records. Clearly, Johnny Walker was victorious in his only fight. With that said, he was also the most accurate in the light heavyweight weight class. Belfort is the epitome of the average record despite being the most accurate in the catch weight class. Doerksen, Dawodu and Phillips close out the red corner all with losing records. Phillips, despite being accurate, lost his one and only fight. The blue corner shows a bit of a trend that I was expecting. Apart from May and Maldonado, all fighter's, being the most accurate from their respective weight classes, have above average or winning records.
+  
+```{r}
+# Creates two boxplots reflecting men's data for red and blue corners. The fighters with the best strikes landed percentage are shown on the x-axis and their corresponding win percentage is on the y-axis. The green line shows the average win percentage for all fighters. 
+
+MB_strike_plot <- M_data %>% filter(B_fighter %in% c("Rousimar Palhares", "Ryan Jimmo", "Yoel Romero", 
+                                   "Issei Tamura","Justin Scoggins", "Tatsuya Kawajiri",
+                                   "Jack May", "Fabio Maldonado")) %>% select(B_fighter, B_win_pct)
+
+ggplot(MB_strike_plot) + geom_boxplot(aes(x = B_fighter, y = B_win_pct), color = "blue") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) +
+  ggtitle("Men's Blue Corner Top Striker Win Percentage by Weight Class") +
+  xlab("Fighter") + ylab("Win Percentage") + geom_hline(yintercept = 0.6054667, color = "green", size = 2)
+
+MR_strike_plot <- M_data %>% filter(R_fighter %in% c("Johnny Walker", "Hakeem Dawodu", "Brandon Moreno", 
+                                    "Aaron Phillips","Vitor Belfort", "Nate Diaz", "Joe Doerksen", 
+                                    "Randy Couture")) %>% select(R_fighter, R_win_pct)
+
+ggplot(MR_strike_plot) + geom_boxplot(aes(x = R_fighter, y = R_win_pct), color = "red") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) + 
+  ggtitle("Men's Red Corner Top Striker Win Percentage by Weight Class") +
+  xlab("Fighter") + ylab("Win Percentage") + geom_hline(yintercept = 0.6460169, color = "green", size = 2)
+```
+
+```{r}
+# From the women's data, two data frames are created reflecting the maximum percentage of strikes landed by corner for each weight class.
+
+F_data %>% group_by(weight_class) %>% filter(R_strike_pct == max(R_strike_pct)) %>% 
+  select(R_fighter, R_strike_pct, weight_class) %>%
+  knitr::kable(caption = "Red Corner's Most Accurate by Weight Class")
+
+F_data %>% group_by(weight_class) %>% filter(B_strike_pct == max(B_strike_pct)) %>% 
+  select(B_fighter, B_strike_pct, weight_class) %>% 
+  knitr::kable(caption = "Blue Corner's Most Accurate by Weight Class")
+
+```
+
+```{r}
+# Creates a sub set reflecting the win percentage of the above fighters filtered to only the fights that include the above fighters.
+
+F_data %>% filter(B_fighter %in% c("Megan Anderson", "Mara Romero Borella", "Michelle Waterson", "Sara McMann") | 
+                    R_fighter %in% c("Liz Carmouche", "Cat Zingano", "Jessica Rakoczy")) %>%
+  select(R_fighter, B_fighter, weight_class, R_win_pct, B_win_pct) %>% head(3) %>% 
+  knitr::kable(caption = "Most Accurate Fighter and Corresponding Winning Percentage")
+```
+
+  The women's data resembles the men's data in this graph. This is true for the difference in red and blue corners as well. The fighter's in the blue corner all have very high winning records apart from Anderson. The women's red corner even has their own epitome of average with Cat Zingano. Carmouche and Rakoczy round off the corner with losing records despite boasting their highest accuracy per weight class accolade.
+  
+```{r}
+# Creates two boxplots reflecting women's data for red and blue corners. The fighters with the best strikes landed percentage are shown on the x-axis and their corresponding win percentage is on the y-axis. The red line show the average win percentage for all fighters. 
+
+WB_strike_plot <- F_data %>% filter(B_fighter %in% c("Megan Anderson", "Mara Romero Borella", 
+                                                     "Michelle Waterson", "Sara McMann")) %>% 
+                                                      select(B_fighter, B_win_pct)
+
+ggplot(WB_strike_plot) + geom_boxplot(aes(x = B_fighter, y = B_win_pct), color = "blue") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) +
+  ggtitle("Women's Blue Corner Top Striker Win Percentage by Weight Class") +
+  xlab("Fighter") + ylab("Win Percentage") + geom_hline(yintercept = 0.585089, color = "green", size = 2)
+
+WR_strike_plot <- F_data %>% filter(R_fighter %in% c("Liz Carmouche", "Cat Zingano", "Jessica Rakoczy")) %>%
+  select(R_fighter, R_win_pct)
+
+ggplot(WR_strike_plot) + geom_boxplot(aes(x = R_fighter, y = R_win_pct), color = "red") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) + 
+  ggtitle("Women's Red Corner Top Striker Win Percentage by Weight Class") +
+  xlab("Fighter") + ylab("Win Percentage") + geom_hline(yintercept = 0.6062128, color = "green", size = 2)
+```
+
+# Summary
+
+  The purpose of this analysis was to explore the data to find interesting pieces of information not easily gathered by a quick glance. There was no major or specific problem in mind when the project began. The separation of information between genders was excellent at highlighting differences in the data and giving contrast. Also, the smaller sample size of the women's data allowed for more visually significant comparisons. The corner conspiracy was something uncovered that was completely unexpected. The red corner usually holds the seasoned and defending fighter while the blue corner houses the challenger. Even with that information, one would not expect nearly doubled chance of a red corner win. In the women's data, the advantage is nominal, as one might expect. Other interesting finds were the created variables of total rounds fought and the average length of fights. Another interesting find was that of the reach to height ratio. There is a clear trend between the heavier weight classes and the more reach of the fighter. Lastly, putting the created variables together with visualizations was both fun and informative. The accuracy variable created showed the trend I was expecting of the highest accuracy fighters having winning records for the blue corner. In both the men's and women's data, the red corners did not depict that prediction.   
